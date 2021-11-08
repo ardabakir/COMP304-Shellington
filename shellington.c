@@ -301,8 +301,9 @@ int prompt(struct command_t *command)
 }
 
 char shortcut[50][1024];	
+char mark[50][1024];
 int shortcutIndex = 0;
-
+int markIndex = 0;
 int process_command(struct command_t *command);
 int main()
 {
@@ -402,6 +403,59 @@ int process_command(struct command_t *command)
 			}
 			else{
 				return EXIT;
+			}
+		}else if(strcmp(command->args[0],"bookmark")==0){
+			if(strcmp(command->args[1],"-l")==0){
+				
+				char echo[1024];
+				if(markIndex>0){
+					system("pwd");	
+				}
+				for(int i=0; i<markIndex; i++){
+					system("pwd");
+					strcpy(echo,"echo ");
+					strcat(echo,mark[i]);
+					system(echo);			
+				}
+				return SUCCESS;
+			}
+			else if(strcmp(command->args[1],"-i")==0){
+				
+				char temp[1024];
+				strcpy(temp,mark[atoi(command->args[2])]);
+				
+				return SUCCESS;
+			}
+			else if(strcmp(command->args[1],"-d")==0){
+				int delIndex = atoi(command->args[2]);
+				
+				if(markIndex>delIndex){
+					
+					for(int i=delIndex; i<markIndex-1; i++){
+						system("pwd");
+						strcpy(mark[i],"");
+						strcpy(mark[i],mark[i+1]);
+
+					}
+					strcpy(mark[markIndex-1],"");
+					markIndex--;
+				}
+				return SUCCESS;
+			}
+			else{
+				char tmp[1024];
+				strcpy(tmp,command->args[1]);
+				int i=2;
+				while(command->args[i]!=NULL){
+					strcat(tmp," ");
+					strcat(tmp,command->args[i]);
+					i++;
+				}
+				
+				strcpy(mark[markIndex],tmp);
+				markIndex++;
+				
+				return SUCCESS;
 			}
 		}
 		char *path;
