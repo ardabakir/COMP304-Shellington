@@ -299,6 +299,10 @@ int prompt(struct command_t *command)
     tcsetattr(STDIN_FILENO, TCSANOW, &backup_termios);
   	return SUCCESS;
 }
+
+char shortcut[50][1024];	
+int shortcutIndex = 0;
+
 int process_command(struct command_t *command);
 int main()
 {
@@ -368,14 +372,46 @@ int process_command(struct command_t *command)
 		
 		/// TODO: do your own exec with path resolving using execv()
 
+		if(strcmp(command->args[0], "short")==0){
+			
+			if(strcmp(command->args[1], "set") == 0){
+				
+				char dir[1024];
+				getcwd(dir,sizeof(dir));
+				for(int i=0;i<shortcutIndex; i+=2){
+					if(strcmp(shortcut[i],command->args[2])==0){
+						strcpy(shortcut[i+1],dir);
+						return SUCCESS;
+					}
+				}
+				strcpy(shortcut[shortcutIndex], command->args[2]);
+				strcpy(shortcut[shortcutIndex+1],dir);
+				shortcutIndex += 2;
+				
+				return SUCCESS;
+			}
+			else if(strcmp(command->args[1],"jump")==0)
+			{
+				for(int i=0;i<shortcutIndex; i+=2){
+					if(strcmp(shortcut[i],command->args[2])==0){
+						chdir(shortcut[i+1]);
+						return SUCCESS;
+					}
+				}
+				
+			}
+			else{
+				return EXIT;
+			}
+		}
 		char *path;
    		path = (char *) malloc(150);
+		//commands that run on linux are stored in /bin/ path
 		strcpy(path, "/bin/");
-
+		//add the command to the end of the path to run in execv
 		strcat(path,command->args[0]);
 
 		execv(path,command->args);
-
 		
 		exit(0);
 	}
