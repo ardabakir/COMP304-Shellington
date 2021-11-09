@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <dirent.h>
 const char * sysname = "shellington";
 
 enum return_codes {
@@ -399,7 +400,6 @@ int process_command(struct command_t *command)
 						return SUCCESS;
 					}
 				}
-				
 			}
 			else{
 				return EXIT;
@@ -408,14 +408,11 @@ int process_command(struct command_t *command)
 			if(strcmp(command->args[1],"-l")==0){
 				
 				char echo[1024];
-				if(markIndex>0){
-					system("pwd");	
-				}
+				char num[30];
+				
 				for(int i=0; i<markIndex; i++){
-					system("pwd");
-					strcpy(echo,"echo ");
-					strcat(echo,mark[i]);
-					system(echo);			
+					sprintf(num, "%d" ,i);	
+					printf("%s %s\n",num,mark[i]);			
 				}
 				return SUCCESS;
 			}
@@ -423,7 +420,7 @@ int process_command(struct command_t *command)
 				
 				char temp[1024];
 				strcpy(temp,mark[atoi(command->args[2])]);
-				
+				system(temp);
 				return SUCCESS;
 			}
 			else if(strcmp(command->args[1],"-d")==0){
@@ -457,7 +454,25 @@ int process_command(struct command_t *command)
 				
 				return SUCCESS;
 			}
-		}
+		}else if(strcmp(command->args[0],"remindnme")==0){
+			
+		}else if(strcmp(command->args[0],"plist")==0){
+			//will add case sensitive-insensitive options
+			DIR *d;
+			struct dirent *dir;
+			//opens the current directory
+			d = opendir(".");
+			if (d) {
+				while ((dir = readdir(d)) != NULL) {
+					//cheks if 
+					if(strstr(dir->d_name,command->args[1])!=NULL){
+						printf("%s\n", dir->d_name);
+					}
+				}
+				closedir(d);
+				return SUCCESS;
+			}
+		}	
 		char *path;
    		path = (char *) malloc(150);
 		//commands that run on linux are stored in /bin/ path
