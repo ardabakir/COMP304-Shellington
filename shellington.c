@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <dirent.h>
+#include <ctype.h>				//to use the tolower function in plist awesome command
 const char * sysname = "shellington";
 
 enum return_codes {
@@ -464,10 +465,43 @@ int process_command(struct command_t *command)
 			d = opendir(".");
 			if (d) {
 				while ((dir = readdir(d)) != NULL) {
-					//cheks if 
-					if(strstr(dir->d_name,command->args[1])!=NULL){
-						printf("%s\n", dir->d_name);
+					if(strcmp(command->args[1],"-s")==0){
+						//this one is default 
+						if(strstr(dir->d_name,command->args[2])!=NULL){
+							printf("%s\n", dir->d_name);
+						}
+					}else if(strcmp(command->args[1],"-i")==0){
+						char temp[1024];
+						strcpy(temp,dir->d_name);
+						for(int i = 0; temp[i]; i++){
+							temp[i] = tolower(temp[i]);
+						}
+						if(strstr(temp,command->args[2])!=NULL){
+							printf("%s\n", dir->d_name);
+						}else{
+							char tempCommand[1024];
+							strcpy(tempCommand,command->args[2]);
+							for(int i = 0; tempCommand[i];i++){
+								tempCommand[i] = tolower(tempCommand[i]);
+							}
+							if(strstr(temp,tempCommand)!=NULL){
+								printf("%s\n", dir->d_name);
+							}
+						}
+					}else if(strcmp(command->args[1],"-sw")==0){
+						//we may add a case insensitive version
+						char temp[strlen(command->args[2])];
+						strncpy(temp,dir->d_name,strlen(command->args[2]));
+						printf("%s\n",temp);
+						if(strcmp(command->args[2],temp)==0){
+							printf("%s\n", dir->d_name);
+						}
+					}else{
+						if(strstr(dir->d_name,command->args[1])!=NULL){
+					 		printf("%s\n", dir->d_name);
+					 	}
 					}
+					
 				}
 				closedir(d);
 				return SUCCESS;
