@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <dirent.h>
+#include <linux/sched.h>
 #include <ctype.h>				//to use the tolower function in plist awesome command
 const char * sysname = "shellington";
 
@@ -302,9 +303,10 @@ int prompt(struct command_t *command)
   	return SUCCESS;
 }
 
-char shortcut[50][1024];	
-char mark[50][1024];
-int shortcutIndex = 0;
+char shortcut[50][1024];	//to keep the shortcuts in memory
+char mark[50][1024];		//to keep the bookmarks in memory
+//number of entries in bookmarks and shortcuts
+int shortcutIndex = 0;		
 int markIndex = 0;
 int process_command(struct command_t *command);
 int main()
@@ -352,12 +354,16 @@ int process_command(struct command_t *command)
 			
 			char dir[1024];
 			getcwd(dir,sizeof(dir));
+			//tries to find the shortcut
+			//if it finds the entry changes it to the new shortcut key
 			for(int i=0;i<shortcutIndex; i+=2){
 				if(strcmp(shortcut[i],command->args[1])==0){
 					strcpy(shortcut[i+1],dir);
 					return SUCCESS;
 				}
 			}
+			//adds two items in shortcut array
+			//one of them is the index of the shortcut and the other is the real shortcut
 			strcpy(shortcut[shortcutIndex], command->args[1]);
 			strcpy(shortcut[shortcutIndex+1],dir);
 			shortcutIndex += 2;
@@ -366,6 +372,9 @@ int process_command(struct command_t *command)
 		}
 		else if(strcmp(command->args[0],"jump")==0)
 		{
+			//looks for the shortcut key by iterating over the shortcut array 
+			//if it finds it jumps to the related directory
+			//else returns exit
 			for(int i=0;i<shortcutIndex; i+=2){
 				if(strcmp(shortcut[i],command->args[1])==0){
 					chdir(shortcut[i+1]);
@@ -409,54 +418,60 @@ int process_command(struct command_t *command)
 
 		
 		if(strcmp(command->args[0],"bookmark")==0){
+
 			if(strcmp(command->args[1],"-l")==0){
 				
-				char echo[1024];
 				char num[30];
-				
+				//iterates over the bookmarked array 
+				//prints the bookmarks with their indexes
 				for(int i=0; i<markIndex; i++){
-					sprintf(num, "%d" ,i);	
+					sprintf(num, "%d" ,i);	//converts integer to string
 					printf("%s %s\n",num,mark[i]);			
 				}
 				return SUCCESS;
 			}
 			else if(strcmp(command->args[1],"-i")==0){
 				
-				char temp[1024];
-				char* arguments[256];
+				char temp[1024];								//holds the bookmarked command
+				char* arguments[256];			
 				char* token;
-				strcpy(temp,mark[atoi(command->args[2])]);
+				strcpy(temp,mark[atoi(command->args[2])]);		//copies the bookmark in the corresponding index to temp 
 				
-				token = strtok(temp," ");
-				token++;
+				token = strtok(temp," ");						//seperates the string by the white spaces
+				token++;										//deletes the first index of token which is a quotation mark
 				
 				char* commandName = token;
 				int i = 1;
 				token = strtok(NULL," ");
+				//if token is null the bookmarked command consists of only one letter
+				//deletes the last char of the codename since it is a quotation mark
+				//then copies the commandName to the arguments array
 				if(token == NULL){
 					commandName[strlen(commandName)-1] = '\0';
 					arguments[0] = commandName;
 				}else{
 					arguments[0] = commandName;
-					
+					//adds all tokens to the arguments array to be used in execv
 					while(token != NULL){
 						arguments[i] = token;
 						i++;
 						token = strtok(NULL," ");
 					}
-					arguments[i-1][strlen(arguments[i-1])-1] = '\0';
+					arguments[i-1][strlen(arguments[i-1])-1] = '\0';	//deletes the quotation mark at the end
 				}
 				
-				arguments[i] = NULL;
+				arguments[i] = NULL;		//adds null as the last element of the arguments array
 				
 				char path[1024];
+				//if commandName is cd changes directory
 				if(strcmp(commandName,"cd")==0){
 					chdir(arguments[1]);
 				}
+				//these commands are not stored in /bin/ directory but in /usr/bin/ directory
 				if(strcmp(command->args[0], "gcc")==0 || strcmp(command->args[0],"crontab") == 0 || strcmp(command->args[0],"vim")==0){
 					strcpy(path,"/usr/bin/");
 				}else{
-					strcpy(path,"/bin/");
+					strcpy(path,"/bin/");		//most commands are in /bin/ directory
 				}
 				
 				strcat(path,commandName);
@@ -466,24 +481,24 @@ int process_command(struct command_t *command)
 			}
 			else if(strcmp(command->args[1],"-d")==0){
 				int delIndex = atoi(command->args[2]);
-				
+				//if delIndex is larger than the array's size returns without doing anything
 				if(markIndex>delIndex){
-					
+					//starting from the delIndex copies all the elements to their left
 					for(int i=delIndex; i<markIndex-1; i++){
-						system("pwd");
 						strcpy(mark[i],"");
 						strcpy(mark[i],mark[i+1]);
 
 					}
-					strcpy(mark[markIndex-1],"");
-					markIndex--;
-				}
+					strcpy(mark[markIndex-1],""); // deletes the cntents of the last element since it is a duplicate
+					markIndex--;				  // decrements the array size
+				}else
 				return SUCCESS;
 			}
 			else{
 				char tmp[1024];
 				int i=2;
-
+				//if the arguments consists of only one word adds quotations to the beginning and to the end
+				//otherwise it keeps the quotation marks so we don't need to add manually
 				if(command->args[i]==NULL){
 					strcpy(tmp,"\"");
 					strcat(tmp,command->args[1]);
@@ -491,13 +506,13 @@ int process_command(struct command_t *command)
 				}else{
 					strcpy(tmp,command->args[1]);
 				}
-				
+				//iterates over the arguments and creates the tmp string
 				while(command->args[i]!=NULL){
 					strcat(tmp," ");
 					strcat(tmp,command->args[i]);
 					i++;
 				}
-				
+				//adds tmp to the mark array and increment the size
 				strcpy(mark[markIndex],tmp);
 				markIndex++;
 
@@ -527,12 +542,13 @@ int process_command(struct command_t *command)
 			FILE *fpNotify;
 			fpNotify = fopen("notification.sh", "w");
 			fprintf(fpNotify, "#!/bin/bash\n");
-			fprintf(fpNotify,"mkdir %s\n",message);
+			fprintf(fpNotify,"echo %s\n",message);
 			fclose(fpNotify);
 
 			char cwd[1024];
 			getcwd(cwd,sizeof(cwd));
-			strcat(cwd,"/notification.sh");
+			strcat(cwd,"/notification");
+
 
 			FILE *fpCrontab;
 			fpCrontab = fopen("cronFile","w");
@@ -548,19 +564,24 @@ int process_command(struct command_t *command)
 			//opens the current directory
 			d = opendir(".");
 			if (d) {
+				//checks every directory in current path
 				while ((dir = readdir(d)) != NULL) {
 					if(strcmp(command->args[1],"-s")==0){
 						//this one is default 
+						//if the directory's name contains the given input prints the directory name
 						if(strstr(dir->d_name,command->args[2])!=NULL){
 							printf("%s\n", dir->d_name);
 						}
 					}else if(strcmp(command->args[1],"-i")==0){
 						//case insensitive
 						char temp[1024];
+						//copes the directory name to temp, then converts all the letters to lowercase
 						strcpy(temp,dir->d_name);
 						for(int i = 0; temp[i]; i++){
 							temp[i] = tolower(temp[i]);
 						}
+						//if lowercase directory name contains the given input prints the directory name
+						//otherwise converts the given input to lowercase to try again
 						if(strstr(temp,command->args[2])!=NULL){
 							printf("%s\n", dir->d_name);
 						}else{
@@ -574,13 +595,16 @@ int process_command(struct command_t *command)
 							}
 						}
 					}else if(strcmp(command->args[1],"-sw")==0){
-						//we may add a case insensitive version
+						//creates a string of length of the given input
 						char temp[strlen(command->args[2])];
+						//copies the first "input length" amount of chars to temp
 						strncpy(temp,dir->d_name,strlen(command->args[2]));
+						//if the input matches the temp string prints the directory name
 						if(strcmp(command->args[2],temp)==0){
 							printf("%s\n", dir->d_name);
 						}
 					}else{
+						//default case same with -s 
 						if(strstr(dir->d_name,command->args[1])!=NULL){
 					 		printf("%s\n", dir->d_name);
 					 	}
@@ -590,11 +614,51 @@ int process_command(struct command_t *command)
 				closedir(d);
 				return SUCCESS;
 			}
-		}	
+		}else if(strcmp(command->args[0],"calculate")==0){
+			char* eptr;
+			double op1 = strtod(command->args[2],&eptr);
+			double result;
+			if(strcmp(command->args[1],"+")==0){
+				result = op1;
+				for(int i=3; i<command->arg_count-1;i++){
+					result += strtod(command->args[i],&eptr);
+				}
+			}else if(strcmp(command->args[1],"-")==0){
+				result = op1;
+				for(int i=3; i<command->arg_count-1;i++){
+					result -= strtod(command->args[i],&eptr);
+				}	
+			}else if(strcmp(command->args[1],"/")==0){
+				result = op1;
+				for(int i=3; i<command->arg_count-1;i++){
+					result /= strtod(command->args[i],&eptr);
+				}	
+			}else if(strcmp(command->args[1],"x")==0){
+				result = op1;
+				for(int i=3; i<command->arg_count-1;i++){
+					result *= strtod(command->args[i],&eptr);
+				}
+			}else if(strcmp(command->args[1],"%")==0){
+				if(command->arg_count !=5 ){
+					printf("You should enter two integers with modulus operator");
+					return EXIT;
+				}else{
+					double op2 = strtod(command->args[3],&eptr);
+					result = (double)((int)op1 % (int)op2);
+				}
+			}else if (strcmp(command->args[1],"!")==0){
+				result = 1.0;
+				for(int i=1;i<=op1;i++){
+					result *= i;
+				}
+			}
+			printf("result is: %.2lf\n",result);
+			return SUCCESS;
+		}
 		char *path;
    		path = (char *) malloc(150);
 		//commands that run on linux are stored in /bin/ path
-		if(strcmp(command->args[0], "gcc")==0 || strcmp(command->args[0],"crontab") == 0 || strcmp(command->args[0],"vim")==0){
+		if(strcmp(command->args[0], "gcc")==0 || strcmp(command->args[0],"crontab") == 0 || strcmp(command->args[0],"vim")==0 || strcmp(command->args[0],"notify-send")==0){
 			strcpy(path,"/usr/bin/");
 		}else{
 			strcpy(path, "/bin/");
