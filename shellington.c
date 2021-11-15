@@ -443,7 +443,7 @@ int process_command(struct command_t *command)
 				char* commandName = token;
 				int i = 1;
 				token = strtok(NULL," ");
-				//if token is null the bookmarked command consists of only one letter
+				//if token is null the bookmarked command consists of only one word
 				//deletes the last char of the codename since it is a quotation mark
 				//then copies the commandName to the arguments array
 				if(token == NULL){
@@ -483,15 +483,15 @@ int process_command(struct command_t *command)
 				int delIndex = atoi(command->args[2]);
 				//if delIndex is larger than the array's size returns without doing anything
 				if(markIndex>delIndex){
+
 					//starting from the delIndex copies all the elements to their left
 					for(int i=delIndex; i<markIndex-1; i++){
-						strcpy(mark[i],"");
 						strcpy(mark[i],mark[i+1]);
-
 					}
 					strcpy(mark[markIndex-1],""); // deletes the cntents of the last element since it is a duplicate
 					markIndex--;				  // decrements the array size
-				}else
+					
+				}
 				return SUCCESS;
 			}
 			else{
@@ -521,41 +521,39 @@ int process_command(struct command_t *command)
 		}
 		else if(strcmp(command->args[0],"remindme")==0){
 			char message[1024];
-			strcpy(message,command->args[2]);
+			strcpy(message,command->args[2]);			//copies the first word given in the command's arguments to message string
 			int i=3;
-			while(command->args[i]!=NULL){
+			while(command->args[i]!=NULL){				//iterates through the remaining arguments and adds them to the message string with whitespace between
 				strcat(message," ");
 				strcat(message,command->args[i]);
 				i++;
 			}
-			printf("%s\n",message);
 
 			char hour[10];
 			char minute[10];
 			char* token;
-			token = strtok(command->args[1],".");
+			token = strtok(command->args[1],".");	//tokenizes the first argument with . and gets the hour and minute 
 			strcpy(hour,token);
 			token = strtok(NULL,".");
 			strcpy(minute,token);
-
-			printf("hour:%s minute:%s\n",hour,minute);
-			FILE *fpNotify;
-			fpNotify = fopen("notification.sh", "w");
-			fprintf(fpNotify, "#!/bin/bash\n");
-			fprintf(fpNotify,"echo %s\n",message);
+	
+			FILE *fpNotify;								//opens a new file to write the notification script
+			fpNotify = fopen("notification", "w");		//names the file as notification
+			fprintf(fpNotify, "#!/bin/bash\n");			//specifies that the file is a bash file
+			fprintf(fpNotify,"notify-send %s\n",message);		//writes the command in the file
 			fclose(fpNotify);
 
-			char cwd[1024];
-			getcwd(cwd,sizeof(cwd));
+			char cwd[1024];	
+			getcwd(cwd,sizeof(cwd));					//gets the files directory
 			strcat(cwd,"/notification");
 
 
 			FILE *fpCrontab;
-			fpCrontab = fopen("cronFile","w");
-			fprintf(fpCrontab,"%s %s * * * %s\n",minute,hour,cwd);
+			fpCrontab = fopen("cronFile","w");			//opens a new file for crontab
+			fprintf(fpCrontab,"%s %s * * * %s\n",minute,hour,cwd);	//specifies the date and give the path of the notification file
 			fclose(fpCrontab);
-			char* arguments[] = {"crontab","cronFile",NULL};
-            execv("/usr/bin/crontab",arguments);
+			char* arguments[] = {"crontab","cronFile",NULL};		//creates arguments array for execv
+            execv("/usr/bin/crontab",arguments);					//executes crontab
 			return SUCCESS;
 
 		}else if(strcmp(command->args[0],"plist")==0){
@@ -614,42 +612,44 @@ int process_command(struct command_t *command)
 				closedir(d);
 				return SUCCESS;
 			}
+			//gets a mathematical operator as an input and implements it on the arguments
 		}else if(strcmp(command->args[0],"calculate")==0){
 			char* eptr;
+			//gets the first argument after the operator as double 
 			double op1 = strtod(command->args[2],&eptr);
 			double result;
-			if(strcmp(command->args[1],"+")==0){
-				result = op1;
-				for(int i=3; i<command->arg_count-1;i++){
-					result += strtod(command->args[i],&eptr);
+			if(strcmp(command->args[1],"+")==0){				//addition
+				result = op1;									//initialize result as op1
+				for(int i=3; i<command->arg_count-1;i++){		//iterate over the given arguments
+					result += strtod(command->args[i],&eptr);	//add each argument to the result
 				}
-			}else if(strcmp(command->args[1],"-")==0){
-				result = op1;
-				for(int i=3; i<command->arg_count-1;i++){
-					result -= strtod(command->args[i],&eptr);
+			}else if(strcmp(command->args[1],"-")==0){			//substract
+				result = op1;									//initialize result as op1
+				for(int i=3; i<command->arg_count-1;i++){		//iterate over the arguments
+					result -= strtod(command->args[i],&eptr);	//substract each argument from the result
 				}	
-			}else if(strcmp(command->args[1],"/")==0){
-				result = op1;
-				for(int i=3; i<command->arg_count-1;i++){
-					result /= strtod(command->args[i],&eptr);
+			}else if(strcmp(command->args[1],"/")==0){			//divide
+				result = op1;									//initialize result
+				for(int i=3; i<command->arg_count-1;i++){		//iterate arguments
+					result /= strtod(command->args[i],&eptr);	//divide result with each argument
 				}	
-			}else if(strcmp(command->args[1],"x")==0){
-				result = op1;
-				for(int i=3; i<command->arg_count-1;i++){
-					result *= strtod(command->args[i],&eptr);
+			}else if(strcmp(command->args[1],"x")==0){			//multiply
+				result = op1;									//init result
+				for(int i=3; i<command->arg_count-1;i++){		//iterate arguments
+					result *= strtod(command->args[i],&eptr);	//multiply result with each argument
 				}
-			}else if(strcmp(command->args[1],"%")==0){
-				if(command->arg_count !=5 ){
-					printf("You should enter two integers with modulus operator");
+			}else if(strcmp(command->args[1],"%")==0){			//modulus
+				if(command->arg_count !=5 ){					//since modulus operator needs exactly 2 arguments
+					printf("You should enter two integers with modulus operator");		//warns the user if argument number is not correct
 					return EXIT;
 				}else{
-					double op2 = strtod(command->args[3],&eptr);
-					result = (double)((int)op1 % (int)op2);
+					double op2 = strtod(command->args[3],&eptr);	//gets the second argument as double
+					result = (double)((int)op1 % (int)op2);			//takes op1 in mod op2
 				}
-			}else if (strcmp(command->args[1],"!")==0){
-				result = 1.0;
-				for(int i=1;i<=op1;i++){
-					result *= i;
+			}else if (strcmp(command->args[1],"!")==0){				//factorial 
+				result = 1.0;						//initialize result as 1
+				for(int i=1;i<=op1;i++){			
+					result *= i;					//multiply result with each number smaller than or equal to op1
 				}
 			}
 			printf("result is: %.2lf\n",result);
@@ -658,6 +658,7 @@ int process_command(struct command_t *command)
 		char *path;
    		path = (char *) malloc(150);
 		//commands that run on linux are stored in /bin/ path
+		//some of the commands are in /usr/bin/ directory 
 		if(strcmp(command->args[0], "gcc")==0 || strcmp(command->args[0],"crontab") == 0 || strcmp(command->args[0],"vim")==0 || strcmp(command->args[0],"notify-send")==0){
 			strcpy(path,"/usr/bin/");
 		}else{
