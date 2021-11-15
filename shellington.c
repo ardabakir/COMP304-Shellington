@@ -346,7 +346,39 @@ int process_command(struct command_t *command)
 			return SUCCESS;
 		}
 	}
-
+	if(strcmp(command->name, "short")==0){
+			
+		if(strcmp(command->args[0], "set") == 0){
+			
+			char dir[1024];
+			getcwd(dir,sizeof(dir));
+			for(int i=0;i<shortcutIndex; i+=2){
+				if(strcmp(shortcut[i],command->args[1])==0){
+					strcpy(shortcut[i+1],dir);
+					return SUCCESS;
+				}
+			}
+			strcpy(shortcut[shortcutIndex], command->args[1]);
+			strcpy(shortcut[shortcutIndex+1],dir);
+			shortcutIndex += 2;
+			
+			return SUCCESS;
+		}
+		else if(strcmp(command->args[0],"jump")==0)
+		{
+			for(int i=0;i<shortcutIndex; i+=2){
+				if(strcmp(shortcut[i],command->args[1])==0){
+					chdir(shortcut[i+1]);
+					return SUCCESS;
+				}
+			}
+		}
+		else{
+			return EXIT;
+		}
+	}
+	
+	
 	pid_t pid=fork();
 	if (pid==0) // child
 	{
@@ -375,37 +407,8 @@ int process_command(struct command_t *command)
 		
 		/// TODO: do your own exec with path resolving using execv()
 
-		if(strcmp(command->args[0], "short")==0){
-			
-			if(strcmp(command->args[1], "set") == 0){
-				
-				char dir[1024];
-				getcwd(dir,sizeof(dir));
-				for(int i=0;i<shortcutIndex; i+=2){
-					if(strcmp(shortcut[i],command->args[2])==0){
-						strcpy(shortcut[i+1],dir);
-						return SUCCESS;
-					}
-				}
-				strcpy(shortcut[shortcutIndex], command->args[2]);
-				strcpy(shortcut[shortcutIndex+1],dir);
-				shortcutIndex += 2;
-				
-				return SUCCESS;
-			}
-			else if(strcmp(command->args[1],"jump")==0)
-			{
-				for(int i=0;i<shortcutIndex; i+=2){
-					if(strcmp(shortcut[i],command->args[2])==0){
-						chdir(shortcut[i+1]);
-						return SUCCESS;
-					}
-				}
-			}
-			else{
-				return EXIT;
-			}
-		}else if(strcmp(command->args[0],"bookmark")==0){
+		
+		if(strcmp(command->args[0],"bookmark")==0){
 			if(strcmp(command->args[1],"-l")==0){
 				
 				char echo[1024];
@@ -420,8 +423,45 @@ int process_command(struct command_t *command)
 			else if(strcmp(command->args[1],"-i")==0){
 				
 				char temp[1024];
+				char* arguments[256];
+				char* token;
 				strcpy(temp,mark[atoi(command->args[2])]);
-				system(temp);
+				
+				token = strtok(temp," ");
+				token++;
+				
+				char* commandName = token;
+				int i = 1;
+				token = strtok(NULL," ");
+				if(token == NULL){
+					commandName[strlen(commandName)-1] = '\0';
+					arguments[0] = commandName;
+				}else{
+					arguments[0] = commandName;
+					
+					while(token != NULL){
+						arguments[i] = token;
+						i++;
+						token = strtok(NULL," ");
+					}
+					arguments[i-1][strlen(arguments[i-1])-1] = '\0';
+				}
+				
+				arguments[i] = NULL;
+				
+				char path[1024];
+				if(strcmp(commandName,"cd")==0){
+					chdir(arguments[1]);
+				}
+				if(strcmp(command->args[0], "gcc")==0 || strcmp(command->args[0],"crontab") == 0 || strcmp(command->args[0],"vim")==0){
+					strcpy(path,"/usr/bin/");
+				}else{
+					strcpy(path,"/bin/");
+				}
+				
+				strcat(path,commandName);
+				
+				execv(path,arguments);
 				return SUCCESS;
 			}
 			else if(strcmp(command->args[1],"-d")==0){
@@ -442,8 +482,16 @@ int process_command(struct command_t *command)
 			}
 			else{
 				char tmp[1024];
-				strcpy(tmp,command->args[1]);
 				int i=2;
+
+				if(command->args[i]==NULL){
+					strcpy(tmp,"\"");
+					strcat(tmp,command->args[1]);
+					strcat(tmp,"\"");
+				}else{
+					strcpy(tmp,command->args[1]);
+				}
+				
 				while(command->args[i]!=NULL){
 					strcat(tmp," ");
 					strcat(tmp,command->args[i]);
@@ -452,13 +500,49 @@ int process_command(struct command_t *command)
 				
 				strcpy(mark[markIndex],tmp);
 				markIndex++;
-				
+
 				return SUCCESS;
 			}
-		}else if(strcmp(command->args[0],"remindnme")==0){
-			
+		}
+		else if(strcmp(command->args[0],"remindme")==0){
+			char message[1024];
+			strcpy(message,command->args[2]);
+			int i=3;
+			while(command->args[i]!=NULL){
+				strcat(message," ");
+				strcat(message,command->args[i]);
+				i++;
+			}
+			printf("%s\n",message);
+
+			char hour[10];
+			char minute[10];
+			char* token;
+			token = strtok(command->args[1],".");
+			strcpy(hour,token);
+			token = strtok(NULL,".");
+			strcpy(minute,token);
+
+			printf("hour:%s minute:%s\n",hour,minute);
+			FILE *fpNotify;
+			fpNotify = fopen("notification.sh", "w");
+			fprintf(fpNotify, "#!/bin/bash\n");
+			fprintf(fpNotify,"mkdir %s\n",message);
+			fclose(fpNotify);
+
+			char cwd[1024];
+			getcwd(cwd,sizeof(cwd));
+			strcat(cwd,"/notification.sh");
+
+			FILE *fpCrontab;
+			fpCrontab = fopen("cronFile","w");
+			fprintf(fpCrontab,"%s %s * * * %s\n",minute,hour,cwd);
+			fclose(fpCrontab);
+			char* arguments[] = {"crontab","cronFile",NULL};
+            execv("/usr/bin/crontab",arguments);
+			return SUCCESS;
+
 		}else if(strcmp(command->args[0],"plist")==0){
-			//will add case sensitive-insensitive options
 			DIR *d;
 			struct dirent *dir;
 			//opens the current directory
@@ -471,6 +555,7 @@ int process_command(struct command_t *command)
 							printf("%s\n", dir->d_name);
 						}
 					}else if(strcmp(command->args[1],"-i")==0){
+						//case insensitive
 						char temp[1024];
 						strcpy(temp,dir->d_name);
 						for(int i = 0; temp[i]; i++){
@@ -492,7 +577,6 @@ int process_command(struct command_t *command)
 						//we may add a case insensitive version
 						char temp[strlen(command->args[2])];
 						strncpy(temp,dir->d_name,strlen(command->args[2]));
-						printf("%s\n",temp);
 						if(strcmp(command->args[2],temp)==0){
 							printf("%s\n", dir->d_name);
 						}
@@ -510,7 +594,11 @@ int process_command(struct command_t *command)
 		char *path;
    		path = (char *) malloc(150);
 		//commands that run on linux are stored in /bin/ path
-		strcpy(path, "/bin/");
+		if(strcmp(command->args[0], "gcc")==0 || strcmp(command->args[0],"crontab") == 0 || strcmp(command->args[0],"vim")==0){
+			strcpy(path,"/usr/bin/");
+		}else{
+			strcpy(path, "/bin/");
+		}
 		//add the command to the end of the path to run in execv
 		strcat(path,command->args[0]);
 
